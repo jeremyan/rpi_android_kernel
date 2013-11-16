@@ -1,0 +1,97 @@
+diff -uNrb linux-3.1.9/drivers/base/power/main.c linux-3.1.9-power/drivers/base/power/main.c
+--- linux-3.1.9/drivers/base/power/main.c	2012-06-20 14:51:23.374803612 -0600
++++ linux-3.1.9-power/drivers/base/power/main.c	2012-06-28 17:26:36.319693712 -0600
+@@ -954,7 +954,7 @@
+ 		pm_runtime_put_sync(dev);
+ 		async_error = error;
+ 	} else if (dev->power.is_suspended) {
+-		__pm_runtime_disable(dev.false);
++		__pm_runtime_disable(dev, false);
+ 	}
+ 
+ 	return error;
+diff -uNrb linux-3.1.9/drivers/mmc/core/core.c linux-3.1.9-power/drivers/mmc/core/core.c
+--- linux-3.1.9/drivers/mmc/core/core.c	2012-06-20 14:51:23.566803619 -0600
++++ linux-3.1.9-power/drivers/mmc/core/core.c	2012-07-03 10:38:15.838817965 -0600
+@@ -1311,7 +1311,6 @@
+ 	spin_unlock_irqrestore(&host->lock, flags);
+ #endif
+ 
+-	wake_lock(&host->detect_wake_lock);
+ 	mmc_schedule_delayed_work(&host->detect, delay);
+ }
+ 
+@@ -1849,12 +1848,7 @@
+ 	mmc_release_host(host);
+ 
+  out:
+-	if (extend_wakelock)
+-		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
+-	else
+-		wake_unlock(&host->detect_wake_lock);
+ 	if (host->caps & MMC_CAP_NEEDS_POLL) {
+-		wake_lock(&host->detect_wake_lock);
+ 		mmc_schedule_delayed_work(&host->detect, HZ);
+ 	}
+ }
+@@ -1876,8 +1870,7 @@
+ 
+ 	if (host->caps & MMC_CAP_DISABLE)
+ 		cancel_delayed_work(&host->disable);
+-	if (cancel_delayed_work_sync(&host->detect))
+-		wake_unlock(&host->detect_wake_lock);
++	cancel_delayed_work_sync(&host->detect);
+ 	mmc_flush_scheduled_work();
+ 
+ 	/* clear pm flags now and let card drivers set them as needed */
+@@ -2007,8 +2000,7 @@
+ 
+ 	if (host->caps & MMC_CAP_DISABLE)
+ 		cancel_delayed_work(&host->disable);
+-	if (cancel_delayed_work(&host->detect))
+-		wake_unlock(&host->detect_wake_lock);
++	cancel_delayed_work(&host->detect);
+ 	mmc_flush_scheduled_work();
+ 
+ 	mmc_bus_get(host);
+@@ -2111,8 +2103,7 @@
+ 		}
+ 		host->rescan_disable = 1;
+ 		spin_unlock_irqrestore(&host->lock, flags);
+-		if (cancel_delayed_work_sync(&host->detect))
+-			wake_unlock(&host->detect_wake_lock);
++		cancel_delayed_work_sync(&host->detect);
+ 
+ 		if (!host->bus_ops || host->bus_ops->suspend)
+ 			break;
+diff -uNrb linux-3.1.9/drivers/mmc/core/host.c linux-3.1.9-power/drivers/mmc/core/host.c
+--- linux-3.1.9/drivers/mmc/core/host.c	2012-06-20 14:51:23.566803619 -0600
++++ linux-3.1.9-power/drivers/mmc/core/host.c	2012-07-03 10:42:55.462828364 -0600
+@@ -284,8 +284,6 @@
+ 
+ 	spin_lock_init(&host->lock);
+ 	init_waitqueue_head(&host->wq);
+-	wake_lock_init(&host->detect_wake_lock, WAKE_LOCK_SUSPEND,
+-		kasprintf(GFP_KERNEL, "%s_detect", mmc_hostname(host)));
+ 	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
+ 	INIT_DELAYED_WORK_DEFERRABLE(&host->disable, mmc_host_deeper_disable);
+ #ifdef CONFIG_PM
+@@ -385,7 +383,6 @@
+ 	spin_lock(&mmc_host_lock);
+ 	idr_remove(&mmc_host_idr, host->index);
+ 	spin_unlock(&mmc_host_lock);
+-	wake_lock_destroy(&host->detect_wake_lock);
+ 
+ 	put_device(&host->class_dev);
+ }
+diff -uNrb linux-3.1.9/include/linux/mmc/host.h linux-3.1.9-power/include/linux/mmc/host.h
+--- linux-3.1.9/include/linux/mmc/host.h	2012-06-20 14:51:24.018803636 -0600
++++ linux-3.1.9-power/include/linux/mmc/host.h	2012-07-03 10:39:08.958819943 -0600
+@@ -297,7 +297,6 @@
+ 	int			claim_cnt;	/* "claim" nesting count */
+ 
+ 	struct delayed_work	detect;
+-	struct wake_lock	detect_wake_lock;
+ 
+ 	const struct mmc_bus_ops *bus_ops;	/* current bus driver */
+ 	unsigned int		bus_refs;	/* reference counter */
