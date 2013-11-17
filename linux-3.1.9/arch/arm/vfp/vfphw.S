@@ -135,6 +135,7 @@ vfp_reload_hw:
 	VFPFMXR	FPEXC, r5		@ enable VFP, disable any pending
 					@ exceptions, so we can get at the
 					@ rest of it
+
 #endif
 
 	DBGSTR1	"load state %p", r10

@@ -481,38 +481,38 @@ pm_runtime_suspend()
 pm_runtime_autosuspend()
 pm_runtime_resume()
 pm_runtime_get_sync()
-pm_runtime_put_sync()
 pm_runtime_put_sync_suspend()
+pm_runtime_put_sync_autosuspend()
 
-5. Runtime PM Initialization, Device Probing and Removal
+5. Run-time PM Initialization, Device Probing and Removal
 
-Initially, the runtime PM is disabled for all devices, which means that the
-majority of the runtime PM helper funtions described in Section 4 will return
+Initially, the run-time PM is disabled for all devices, which means that the
+majority of the run-time PM helper funtions described in Section 4 will return
 -EAGAIN until pm_runtime_enable() is called for the device.
 
-In addition to that, the initial runtime PM status of all devices is
+In addition to that, the initial run-time PM status of all devices is
 'suspended', but it need not reflect the actual physical state of the device.
 Thus, if the device is initially active (i.e. it is able to process I/O), its
-runtime PM status must be changed to 'active', with the help of
+run-time PM status must be changed to 'active', with the help of
 pm_runtime_set_active(), before pm_runtime_enable() is called for the device.
 
-However, if the device has a parent and the parent's runtime PM is enabled,
+However, if the device has a parent and the parent's run-time PM is enabled,
 calling pm_runtime_set_active() for the device will affect the parent, unless
 the parent's 'power.ignore_children' flag is set.  Namely, in that case the
 parent won't be able to suspend at run time, using the PM core's helper
 functions, as long as the child's status is 'active', even if the child's
-runtime PM is still disabled (i.e. pm_runtime_enable() hasn't been called for
+run-time PM is still disabled (i.e. pm_runtime_enable() hasn't been called for
 the child yet or pm_runtime_disable() has been called for it).  For this reason,
 once pm_runtime_set_active() has been called for the device, pm_runtime_enable()
-should be called for it too as soon as reasonably possible or its runtime PM
+should be called for it too as soon as reasonably possible or its run-time PM
 status should be changed back to 'suspended' with the help of
 pm_runtime_set_suspended().
 
-If the default initial runtime PM status of the device (i.e. 'suspended')
+If the default initial run-time PM status of the device (i.e. 'suspended')
 reflects the actual state of the device, its bus type's or its driver's
 ->probe() callback will likely need to wake it up using one of the PM core's
 helper functions described in Section 4.  In that case, pm_runtime_resume()
-should be used.  Of course, for this purpose the device's runtime PM has to be
+should be used.  Of course, for this purpose the device's run-time PM has to be
 enabled earlier by calling pm_runtime_enable().
 
 If the device bus type's or driver's ->probe() callback runs
